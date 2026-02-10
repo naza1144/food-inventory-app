@@ -1,64 +1,152 @@
 import { readFileSync } from 'fs'
+import path from 'path'
+import modelLoader from './modelLoader.js'
+import imageProcessor from './imageProcessor.js'
+import YOLODetector from './yoloDetector.js'
+import CNNAnalyzer from './cnnAnalyzer.js'
 
 class MeatAnalyzer {
   constructor() {
-    this.model = null
-    this.meatTypes = ['หมู', 'ไก่', 'ปลา']
+    this.modelLoader = modelLoader
+    this.imageProcessor = imageProcessor
+    this.yoloDetector = new YOLODetector(modelLoader)
+    this.cnnAnalyzer = new CNNAnalyzer(modelLoader)
+    this.modelLoaded = false
   }
 
-  // Initialize model (จะโหลด model จริงในอนาคต)
+  // Initialize models with proper error handling
   async initialize() {
-    console.log('🤖 Initializing AI Model...')
-    // ในโปรเจคจริง จะโหลด pre-trained model ที่นี่
-    // this.model = await tf.loadLayersModel('file://path/to/model.json')
-    console.log('✅ AI Model initialized')
+    try {
+      console.log('🤖 Initializing AI Models...')
+      
+      // Initialize model loader
+      const loaderInitialized = await this.modelLoader.initialize()
+      if (!loaderInitialized) {
+        throw new Error('Failed to initialize model loader')
+      }
+      
+      // Load all models
+      console.log('Loading CNN meat type model...')
+      await this.modelLoader.loadModel(
+        path.join(process.cwd(), 'utils', 'model', 'model_meat_CNN', 'meat_type_model.pth'),
+        'meatType'
+      )
+      
+      console.log('Loading CNN meat quality model...')
+      await this.modelLoader.loadModel(
+        path.join(process.cwd(), 'utils', 'model', 'model_meat_CNN', 'meat_quality_model.pth'),
+        'meatQuality'
+      )
+      
+      console.log('Loading CNN YOLO model...')
+      await this.modelLoader.loadModel(
+        path.join(process.cwd(), 'utils', 'model', 'model_meat_CNN', 'best.pt'),
+        'yoloCNN'
+      )
+      
+      console.log('Loading CRNN YOLO model...')
+      await this.modelLoader.loadModel(
+        path.join(process.cwd(), 'utils', 'model', 'model_meat_CRNN', 'yolo11n.pt'),
+        'yoloCRNN'
+      )
+      
+      // Validate all models loaded successfully
+      const requiredModels = ['meatType', 'meatQuality', 'yoloCNN', 'yoloCRNN']
+      const missingModels = requiredModels.filter(name => !this.modelLoader.getModel(name))
+      
+      if (missingModels.length > 0) {
+        throw new Error(`Failed to load models: ${missingModels.join(', ')}`)
+      }
+      
+      this.modelLoaded = true
+      console.log('✅ All AI Models initialized successfully')
+      return true
+    } catch (error) {
+      console.error('❌ Error initializing models:', error.message)
+      console.log('⚠️  Model initialization failed - analysis will not be available')
+      this.modelLoaded = false
+      return false
+    }
   }
 
-  // วิเคราะห์รูปภาพ (ใช้ mock data ในตัวอย่างนี้)
+  // Main analysis function - sequential pipeline without random predictions
   async analyzeMeat(imagePath) {
     try {
-      // อ่านรูปภาพ
+      if (!this.modelLoaded) {
+        throw new Error('Models not loaded. Please initialize the analyzer first.')
+      }
+
+      // Read image
       const imageBuffer = readFileSync(imagePath)
       
-      // ในโปรเจคจริง จะใช้ TensorFlow.js เพื่อประมวลผลรูปภาพ
-      // const imageTensor = tf.node.decodeImage(imageBuffer)
-      // const predictions = await this.model.predict(imageTensor)
+      // Step 1: Check for expiration labels using CRNN YOLO
+      console.log('Step 1: Checking for expiration labels...')
+      const expirationLabels = await this.yoloDetector.detectExpirationLabels(imageBuffer)
       
-      // Mock prediction สำหรับตัวอย่าง
-      const result = this.mockPrediction()
+      if (expirationLabels.length > 0) {
+        console.log(`Found ${expirationLabels.length} expiration label(s)`)
+        return {
+          hasExpirationLabel: true,
+          labelDetections: expirationLabels,
+          status: 'expired_detected',
+          message: 'Expiration label detected in image'
+        }
+      }
       
-      return result
+      // Step 2: No expiration labels found, proceed with CNN analysis
+      console.log('Step 2: No expiration labels found, proceeding with CNN analysis...')
+      
+      // Detect meat objects using CNN YOLO
+      const fullImageTensor = this.imageProcessor.decodeImage(imageBuffer)
+      const meatDetections = await this.yoloDetector.detectMeatObjects(fullImageTensor)
+      
+      if (meatDetections.length === 0) {
+        throw new Error('No meat objects detected in image')
+      }
+
+      // Analyze each detected meat object with CNN models
+      const results = []
+      
+      for (const detection of meatDetections) {
+        // Crop the detected meat region
+        const croppedTensor = this.imageProcessor.cropImageTensor(fullImageTensor, detection.bbox)
+
+        // CNN Analysis for meat type
+        const typeResult = await this.cnnAnalyzer.analyzeMeatType(croppedTensor)
+        
+        // CNN Analysis for meat quality
+        const qualityResult = await this.cnnAnalyzer.analyzeMeatQuality(croppedTensor)
+        
+        // Combine CNN results
+        const combinedResult = this.cnnAnalyzer.combinePredictions(
+          typeResult,
+          qualityResult,
+          detection.confidence
+        )
+        
+        results.push(combinedResult)
+        
+        // Clean up tensors
+        this.imageProcessor.disposeTensor(croppedTensor)
+      }
+      
+      // Clean up
+      this.imageProcessor.disposeTensor(fullImageTensor)
+      
+      // Return the best result (highest confidence)
+      const bestResult = results.reduce((best, current) => 
+        current.confidence > best.confidence ? current : best
+      )
+      
+      return {
+        ...bestResult,
+        hasExpirationLabel: false,
+        analysisType: 'cnn_only'
+      }
+      
     } catch (error) {
       console.error('Error analyzing meat:', error)
-      throw error
-    }
-  }
-
-  // Mock prediction (จำลองการทำนาย)
-  mockPrediction() {
-    // สุ่มประเภทเนื้อ
-    const randomMeatType = this.meatTypes[Math.floor(Math.random() * this.meatTypes.length)]
-    
-    // สุ่ม freshness score (0-100)
-    // ใช้การสุ่มแบบ weighted เพื่อให้ผลลัพธ์สมจริงมากขึ้น
-    const random = Math.random()
-    let freshnessScore
-    
-    if (random < 0.6) {
-      // 60% โอกาสได้คะแนนสูง (75-100)
-      freshnessScore = Math.floor(Math.random() * 26) + 75
-    } else if (random < 0.85) {
-      // 25% โอกาสได้คะแนนปานกลาง (50-74)
-      freshnessScore = Math.floor(Math.random() * 25) + 50
-    } else {
-      // 15% โอกาสได้คะแนนต่ำ (20-49)
-      freshnessScore = Math.floor(Math.random() * 30) + 20
-    }
-
-    return {
-      meatType: randomMeatType,
-      freshnessScore,
-      confidence: Math.floor(Math.random() * 20) + 80 // 80-100% confidence
+      throw error // Don't fallback to mock, throw the error instead
     }
   }
 

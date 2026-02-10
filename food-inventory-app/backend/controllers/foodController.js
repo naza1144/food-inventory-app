@@ -2,6 +2,18 @@ import Food from '../models/Food.js'
 import meatAnalyzer from '../utils/meatAnalyzer.js'
 import { AppError } from '../middleware/errorHandler.js'
 
+// Initialize meat analyzer when module loads
+let analyzerInitialized = false
+
+const ensureAnalyzerInitialized = async () => {
+  if (!analyzerInitialized) {
+    console.log('🔧 Initializing Meat Analyzer...')
+    await meatAnalyzer.initialize()
+    analyzerInitialized = true
+    console.log('✅ Meat Analyzer initialized successfully')
+  }
+}
+
 export const scanFood = async (req, res, next) => {
   try {
     if (!req.file) {
@@ -13,6 +25,9 @@ export const scanFood = async (req, res, next) => {
     if (!purchase_date || !storage_method) {
       return next(new AppError('กรุณากรอกข้อมูลให้ครบถ้วน', 400))
     }
+
+    // Ensure meat analyzer is initialized
+    await ensureAnalyzerInitialized()
 
     // Analyze image with AI
     const analysis = await meatAnalyzer.analyzeMeat(req.file.path)
