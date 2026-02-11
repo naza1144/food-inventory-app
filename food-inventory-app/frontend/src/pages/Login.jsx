@@ -40,7 +40,6 @@ const Login = () => {
       <div className="auth-card">
         <div className="auth-header">
           <h1>เข้าสู่ระบบ</h1>
-          <p>ยินดีต้อนรับกลับมา! 🍖</p>
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">

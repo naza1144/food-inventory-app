@@ -57,7 +57,6 @@ const Signup = () => {
       <div className="auth-card">
         <div className="auth-header">
           <h1>สมัครสมาชิก</h1>
-          <p>เริ่มต้นจัดการสต็อกอาหารของคุณ! 🥩</p>
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">

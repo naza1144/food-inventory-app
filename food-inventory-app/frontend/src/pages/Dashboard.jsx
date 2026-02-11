@@ -31,10 +31,15 @@ const Dashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const [statsData, foodsData] = await Promise.all([
+      const [statsResponse, foodsResponse] = await Promise.all([
         foodService.getStats(),
         foodService.getRecentFoods()
       ])
+      
+      // Extract data from responses
+      const statsData = statsResponse.data || statsResponse
+      const foodsData = foodsResponse.data || foodsResponse
+      
       setStats(statsData)
       setRecentFoods(Array.isArray(foodsData) ? foodsData : [])
     } catch (error) {

@@ -1,4 +1,5 @@
 .navbar {
+  
   background: linear-gradient(135deg, var(--primary-blue) 0%, var(--dark-blue) 100%);
   color: white;
   padding: 1rem 0;

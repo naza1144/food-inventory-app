@@ -20,7 +20,7 @@ const Navbar = () => {
     <nav className="navbar">
       <div className="navbar-container">
         <Link to="/dashboard" className="navbar-logo">
-          🍖 Food Inventory
+          Food Inventory
         </Link>
         
         <div className="navbar-menu">

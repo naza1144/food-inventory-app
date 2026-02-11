@@ -11,6 +11,8 @@ const FoodList = () => {
   const [filteredFoods, setFilteredFoods] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteId, setDeleteId] = useState(null)
 
   useEffect(() => {
     fetchFoods()
@@ -22,8 +24,14 @@ const FoodList = () => {
 
   const fetchFoods = async () => {
     try {
-      const data = await foodService.getAllFoods()
-      setFoods(Array.isArray(data) ? data : [])
+      const response = await foodService.getAllFoods()
+      console.log('getAllFoods response:', response)
+      
+      // Extract data from response (backend sends { success, count, data: [...] })
+      const foodsData = response.data || response
+      console.log('Foods data:', foodsData)
+      
+      setFoods(Array.isArray(foodsData) ? foodsData : [])
     } catch (error) {
       toast.error('ไม่สามารถโหลดข้อมูลได้')
       console.error('Error fetching foods:', error)
@@ -37,27 +45,39 @@ const FoodList = () => {
     let filtered = Array.isArray(foods) ? [...foods] : []
     
     if (filter === 'fresh') {
-      filtered = filtered.filter(food => food.freshness_score >= 75)
+      filtered = filtered.filter(food => food.freshnessScore >= 75)
     } else if (filter === 'expiring') {
-      filtered = filtered.filter(food => food.freshness_score >= 50 && food.freshness_score < 75)
+      filtered = filtered.filter(food => food.freshnessScore >= 50 && food.freshnessScore < 75)
     } else if (filter === 'spoiled') {
-      filtered = filtered.filter(food => food.freshness_score < 50)
+      filtered = filtered.filter(food => food.freshnessScore < 50)
     }
     
     setFilteredFoods(filtered)
   }
 
-  const handleDelete = async (id) => {
-    if (window.confirm('คุณแน่ใจหรือไม่ที่จะลบรายการนี้?')) {
-      try {
-        await foodService.deleteFood(id)
-        toast.success('ลบข้อมูลสำเร็จ')
-        fetchFoods()
-      } catch (error) {
-        toast.error('ไม่สามารถลบข้อมูลได้')
-        console.error('Error deleting food:', error)
-      }
+  const handleDelete = (id) => {
+    setDeleteId(id)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteId) return
+    try {
+      await foodService.deleteFood(deleteId)
+      toast.success('ลบข้อมูลสำเร็จ')
+      setShowDeleteModal(false)
+      setDeleteId(null)
+      fetchFoods()
+    } catch (error) {
+      toast.error('ไม่สามารถลบข้อมูลได้')
+      setShowDeleteModal(false)
+      setDeleteId(null)
     }
+  }
+
+  const cancelDelete = () => {
+    setShowDeleteModal(false)
+    setDeleteId(null)
   }
 
   const getFreshnessColor = (score) => {
@@ -165,6 +185,41 @@ const FoodList = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="modal-overlay" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div className="modal-content" style={{
+            background: '#fff',
+            borderRadius: '12px',
+            padding: '32px 24px',
+            minWidth: '320px',
+            boxShadow: '0 2px 16px rgba(0,0,0,0.2)',
+            textAlign: 'center'
+          }}>
+            <h2>ยืนยันการลบ</h2>
+            <p>คุณแน่ใจหรือไม่ที่จะลบรายการนี้?</p>
+            <div className="modal-buttons" style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '20px' }}>
+              <button className="btn btn-danger" onClick={confirmDelete}>
+                ลบ
+              </button>
+              <button className="btn btn-secondary" onClick={cancelDelete}>
+                ยกเลิก
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

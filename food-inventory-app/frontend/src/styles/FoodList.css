@@ -188,13 +188,21 @@
 
 .btn-danger {
   background-color: #e74c3c;
+  border: 2px solid #c0392b;
   color: white;
-  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  cursor: pointer;
+  opacity: 1;
+  transition: background 0.2s, color 0.2s, border 0.2s;
 }
 
 .btn-danger:hover {
-  background-color: #c0392b;
-  transform: translateY(-2px);
+  background-color: #ff8800;
+  border-color: #ff8800;
+  color: #fff;
 }
 
 .btn-block {

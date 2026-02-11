@@ -29,8 +29,19 @@ export const scanFood = async (req, res, next) => {
     // Ensure meat analyzer is initialized
     await ensureAnalyzerInitialized()
 
-    // Analyze image with AI
-    const analysis = await meatAnalyzer.analyzeMeat(req.file.path)
+    // Try to analyze image with AI, but provide defaults if analysis fails
+    let analysis = {
+      meatType: 'ไม่ระบุ',
+      freshnessScore: 100,
+      confidence: 0
+    }
+
+    try {
+      analysis = await meatAnalyzer.analyzeMeat(req.file.path)
+    } catch (error) {
+      console.log('⚠️ AI analysis failed, using default values:', error.message)
+      // Continue with default values instead of aborting
+    }
 
     // Calculate adjusted freshness score based on date and storage
     const adjustedFreshness = meatAnalyzer.calculateFreshnessAdjustment(
@@ -41,7 +52,7 @@ export const scanFood = async (req, res, next) => {
 
     // Prepare result
     const result = {
-      image_url: `/uploads/${req.file.filename}`,
+      image_url: `http://localhost:5000/uploads/${req.file.filename}`,
       meat_type: analysis.meatType,
       purchase_date,
       storage_method,
@@ -69,7 +80,7 @@ export const saveFood = async (req, res, next) => {
     // รับ image_url จาก file upload หรือจาก body
     let image_url
     if (req.file) {
-      image_url = `/uploads/${req.file.filename}`
+      image_url = `http://localhost:5000/uploads/${req.file.filename}`
     } else if (req.body.image_url) {
       image_url = req.body.image_url
     }
@@ -79,13 +90,30 @@ export const saveFood = async (req, res, next) => {
       return next(new AppError('กรุณาอัพโหลดรูปภาพ', 400))
     }
 
+    // คำนวณ freshness score ถ้าไม่ได้ส่งมา
+    let calculatedFreshness = 100
+    if (purchase_date) {
+      const purchaseDateObj = new Date(purchase_date)
+      const today = new Date()
+      const daysOld = Math.floor((today - purchaseDateObj) / (1000 * 60 * 60 * 24))
+      
+      // ปรับตามวันที่และวิธีการเก็บ
+      if (storage_method === 'ตู้เย็น') {
+        calculatedFreshness = Math.max(0, 100 - (daysOld * 3)) // ลดลง 3% ต่อวัน
+      } else if (storage_method === 'ที่อุณหภูมิห้อง') {
+        calculatedFreshness = Math.max(0, 100 - (daysOld * 8)) // ลดลง 8% ต่อวัน
+      } else {
+        calculatedFreshness = Math.max(0, 100 - (daysOld * 5)) // ลดลง 5% ต่อวัน
+      }
+    }
+
     const food = await Food.create({
       userId: req.user.id,
       imageUrl: image_url,
       meatType: meat_type || 'ไม่ระบุ',
       purchaseDate: purchase_date || new Date().toISOString().split('T')[0],
-      storageMethod: storage_method || 'ไม่ระบุ',
-      freshnessScore: freshness_score !== undefined ? freshness_score : 0
+      storageMethod: storage_method || 'ตู้เย็น',
+      freshnessScore: (freshness_score !== null && freshness_score !== undefined && !isNaN(freshness_score)) ? parseInt(freshness_score) : calculatedFreshness
     })
 
     // แปลงข้อมูลให้ frontend อ่านได้
