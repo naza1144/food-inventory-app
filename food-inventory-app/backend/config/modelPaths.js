@@ -1,11 +1,16 @@
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 export default {
-yoloLabel: "backend/ai_models/yolo/label_best.pt",
-yoloMeat: "backend/ai_models/yolo/meat_yolo11n.pt",
+  // ใช้ .pt ไฟล์เดิม (สำหรับ PyTorch ในอนาคต)
+  yoloLabel: join(__dirname, '../ai_models/yolo/yolo11n.pt'),
+  yoloMeat: join(__dirname, '../ai_models/yolo/best.pt'),
 
+  cnnType: join(__dirname, '../ai_models/cnn/meat_type_model.pth'),
+  cnnFreshness: join(__dirname, '../ai_models/cnn/meat_quality_model.pth'),
 
-cnnType: "backend/ai_models/cnn/meat_type_model.pth",
-cnnFreshness: "backend/ai_models/cnn/meat_quality_model.pth",
-
-
-crnn: "backend/ai_models/crnn/crnn.pth"
+  crnn: join(__dirname, '../ai_models/crnn/crnn.pth')
 };

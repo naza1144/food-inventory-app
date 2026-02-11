@@ -19,11 +19,11 @@ export const scanFood = async (req, res, next) => {
 
     // Prepare result
     const result = {
-      image_url: `/storage/uploads/${req.file.filename}`,
+      image_url: `/uploads/${req.file.filename}`,
       meat_type: analysis.meatType || 'ไม่ระบุ',
       purchase_date,
       storage_method,
-      freshness_score: analysis.freshness || 85,
+      freshness_score: analysis.freshness?.percentage || 85,
       confidence: analysis.confidence || 0.8,
       has_label: analysis.hasLabel || false,
       analysis_type: analysis.analysisType || 'mock'
@@ -49,7 +49,7 @@ export const saveFood = async (req, res, next) => {
     // รับ image_url จาก file upload หรือจาก body
     let image_url
     if (req.file) {
-      image_url = `/storage/uploads/${req.file.filename}`
+      image_url = `/uploads/${req.file.filename}`
     } else if (req.body.image_url) {
       image_url = req.body.image_url
     }
