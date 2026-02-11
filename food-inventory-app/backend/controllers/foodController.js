@@ -1,18 +1,6 @@
 import Food from '../models/Food.js'
-import meatAnalyzer from '../utils/meatAnalyzer.js'
+import MeatService from "../services/meat.service.js";
 import { AppError } from '../middleware/errorHandler.js'
-
-// Initialize meat analyzer when module loads
-let analyzerInitialized = false
-
-const ensureAnalyzerInitialized = async () => {
-  if (!analyzerInitialized) {
-    console.log('🔧 Initializing Meat Analyzer...')
-    await meatAnalyzer.initialize()
-    analyzerInitialized = true
-    console.log('✅ Meat Analyzer initialized successfully')
-  }
-}
 
 export const scanFood = async (req, res, next) => {
   try {
@@ -26,27 +14,19 @@ export const scanFood = async (req, res, next) => {
       return next(new AppError('กรุณากรอกข้อมูลให้ครบถ้วน', 400))
     }
 
-    // Ensure meat analyzer is initialized
-    await ensureAnalyzerInitialized()
-
-    // Analyze image with AI
-    const analysis = await meatAnalyzer.analyzeMeat(req.file.path)
-
-    // Calculate adjusted freshness score based on date and storage
-    const adjustedFreshness = meatAnalyzer.calculateFreshnessAdjustment(
-      purchase_date,
-      storage_method,
-      analysis.freshnessScore
-    )
+    // Analyze image with AI using MeatService
+    const analysis = await MeatService.analyze(req.file.path)
 
     // Prepare result
     const result = {
-      image_url: `/uploads/${req.file.filename}`,
-      meat_type: analysis.meatType,
+      image_url: `/storage/uploads/${req.file.filename}`,
+      meat_type: analysis.meatType || 'ไม่ระบุ',
       purchase_date,
       storage_method,
-      freshness_score: adjustedFreshness,
-      confidence: analysis.confidence
+      freshness_score: analysis.freshness || 85,
+      confidence: analysis.confidence || 0.8,
+      has_label: analysis.hasLabel || false,
+      analysis_type: analysis.analysisType || 'mock'
     }
 
     res.json({
@@ -69,7 +49,7 @@ export const saveFood = async (req, res, next) => {
     // รับ image_url จาก file upload หรือจาก body
     let image_url
     if (req.file) {
-      image_url = `/uploads/${req.file.filename}`
+      image_url = `/storage/uploads/${req.file.filename}`
     } else if (req.body.image_url) {
       image_url = req.body.image_url
     }
