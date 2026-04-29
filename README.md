@@ -209,20 +209,5 @@ npm run dev    # Development mode
 6. Mobile App (React Native)
 7. Dashboard แบบ Real-time
 
-## 📄 License
-
-MIT License
-
-## 👨‍💻 ผู้พัฒนา
-
-พัฒนาเพื่อการศึกษาและลดการสูญเสียอาหาร
-
-## 📞 ติดต่อ
-
-หากมีคำถามหรือข้อเสนอแนะ สามารถติดต่อได้ที่:
-- GitHub Issues
-- Email: [your-email@example.com]
-
----
 
 **หมายเหตุ**: โปรเจคนี้พัฒนาเพื่อการศึกษา AI Model ที่ใช้เป็น Mock Data ควรพัฒนา Model จริงสำหรับการใช้งานจริง
